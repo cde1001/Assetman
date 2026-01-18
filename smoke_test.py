@@ -11,6 +11,7 @@ def main():
     if not test_url:
         print("TEST_DATABASE_URL not set; skipping smoke test.")
         return
+    reset_schema = os.environ.get("RESET_ITAM_SCHEMA") == "1"
 
     env = os.environ.copy()
     env["DATABASE_URL"] = test_url
@@ -25,6 +26,30 @@ def main():
             sys.exit(proc.returncode)
         else:
             print(proc.stdout.strip())
+
+    if reset_schema:
+        p = urlparse(test_url)
+        try:
+            conn = pg.connect(
+                user=unquote(p.username),
+                password=unquote(p.password) if p.password else None,
+                host=p.hostname,
+                port=p.port or 5432,
+                database=p.path.lstrip("/"),
+                ssl_context=True,
+            )
+            conn.autocommit = True
+            cur = conn.cursor()
+            cur.execute("DROP SCHEMA IF EXISTS itam CASCADE;")
+            print("Dropped schema itam for clean reset.")
+        except Exception as exc:
+            print(f"Failed to drop schema: {exc}", file=sys.stderr)
+            sys.exit(1)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     run("apply_schema.py")
     run("seed_data.py")
