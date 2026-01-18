@@ -33,7 +33,7 @@ jobs:
             echo "DATABASE_URL/TEST_DATABASE_URL not set; skipping DB migrations."
             exit 0
           fi
-          python -m alembic upgrade head
+          alembic upgrade head
 
       - name: Smoke test (schema + seed)
         run: |
