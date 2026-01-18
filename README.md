@@ -1,31 +1,33 @@
-# Assetman (dev notes)
+# Assetman (prototype)
 
 ## Setup
-- Python 3.13+ vorhanden. Install deps: `python -m pip install --user -r requirements.txt`.
-- `.env` enthält `DATABASE_URL` (Postgres, nicht commiten).
+- Python 3.13+. Install deps: `python -m pip install --user -r requirements.txt`.
+- `.env` contains `DATABASE_URL` (Postgres, do not commit).
+- Auth: `APP_USERS` format `user:pass:role;user2:pass:role`. Default dev users: `admin/admin123`, `operator/op123`, `viewer/view123`. Optional `APP_SECRET_KEY` for token signing.
 
-## Alembic (Migrationen)
-- Initiale Revision: `alembic/versions/20250118_0001_init.py` liest `schema.sql` und legt Schema an (wenn noch keine itam-Tabellen).
-- Bestehende DB mit Schema? Nutze `python -m alembic stamp head` (setzt Version ohne Schema neu anzulegen).
-- Frische/leer DB? `python -m alembic upgrade head` (legt Schema an).
-- Weitere Migrationen: neue Revisionen per `python -m alembic revision -m "..."` und Upgrade-Logik manuell ergänzen (keine Autogenerate-Models vorhanden).
-- CI: `.github/workflows/ci.yml` erwartet ein Secret `TEST_DATABASE_URL` (Postgres) und führt `alembic upgrade head` + `python smoke_test.py` aus.
+## Alembic
+- Initial revision: `alembic/versions/20250118_0001_init.py` reads `schema.sql` (if no itam tables yet).
+- Existing DB with schema: `python -m alembic stamp head`.
+- Fresh DB: `python -m alembic upgrade head`.
+- New migrations: `python -m alembic revision -m "..."` and add manual SQL.
+- CI: `.github/workflows/ci.yml` expects `TEST_DATABASE_URL` (Postgres), runs `alembic upgrade head` + `python smoke_test.py` (schema reset per run).
 
-## Legacy Helpers
-- `python apply_schema.py` (nur nutzen, wenn itam leer ist; droppt leer-Schema und legt neu an).
-- `python seed_data.py` (truncate + Seed-Daten).
+## Legacy helpers
+- `python apply_schema.py` (only if itam is empty; drops empty schema then reapplies).
+- `python seed_data.py` (truncate + seed).
 
 ## Quick health
-- DB-Ping: `python - <<'PY'\nimport pg8000.dbapi as pg\nfrom urllib.parse import urlparse, unquote\nfrom pathlib import Path\np=urlparse([l.split('=',1)[1].strip() for l in Path('.env').read_text().splitlines() if l.startswith('DATABASE_URL=')][0])\nconn=pg.connect(user=unquote(p.username), password=unquote(p.password), host=p.hostname, port=p.port or 5432, database=p.path.lstrip('/'), ssl_context=True)\ncur=conn.cursor(); cur.execute('select 1'); print(cur.fetchone()); conn.close()\nPY`
+- DB ping: `python - <<'PY'\nfrom pathlib import Path\nfrom urllib.parse import urlparse, unquote\nimport pg8000.dbapi as pg\np=urlparse([l.split('=',1)[1].strip() for l in Path('.env').read_text().splitlines() if l.startswith('DATABASE_URL=')][0])\nconn=pg.connect(user=unquote(p.username), password=unquote(p.password), host=p.hostname, port=p.port or 5432, database=p.path.lstrip('/'), ssl_context=True)\ncur=conn.cursor(); cur.execute('select 1'); print(cur.fetchone()); conn.close()\nPY`
 
-## API (FastAPI, minimal)
+## API (FastAPI)
 - Start: `python -m uvicorn app.main:app --reload --port 8000`.
-- Endpoints:
-  - `GET /health` DB-Ping
-  - `GET /assets` Liste inkl. offener Assignment
-  - `POST /assets` Anlage Asset
-  - `PUT /assets/{asset_id}` Update Asset (teilweise)
-  - `DELETE /assets/{asset_id}` Löschen Asset (fails bei FK-Referenzen)
-  - `POST /assignments` Neue Zuweisung (person_id oder location_id notwendig)
-  - `PUT /assignments/{assignment_id}` Update (z.B. assigned_to setzen, purpose/notes)
-  - `DELETE /assignments/{assignment_id}` Löschen Assignment
+- Auth: `POST /auth/token` (Basic -> bearer token), `GET /auth/demo-token` (viewer token for demo UI).
+- `GET /health` DB ping.
+- Assets: `GET /assets` (filters: `q`, `status`, `type`, `owner_org_unit_id`, `assigned`, `sort`), `POST /assets` (admin/operator), `PUT /assets/{asset_id}` (admin/operator, guarded status transitions), `DELETE /assets/{asset_id}` (admin).
+- Assignments: `POST /assignments` (no retired assets; admin/operator), `PUT /assignments/{assignment_id}` (admin/operator), `DELETE /assignments/{assignment_id}` (admin).
+- Frontend: `/` minimal list + filters (uses demo viewer token), visual style inspired by diakonissenhaus.de.
+
+## Roles (prototype)
+- admin: full access.
+- operator: manage assets/assignments (no deletes).
+- viewer: read-only.
