@@ -42,6 +42,10 @@ def _secret_key() -> bytes:
     return key.encode("utf-8")
 
 
+def is_demo_mode() -> bool:
+    return os.environ.get("APP_DEMO", "1") == "1"
+
+
 def create_token(username: str, role: str) -> str:
     exp = int(time.time()) + TOKEN_TTL_SECONDS
     payload = f"{username}:{role}:{exp}".encode("utf-8")
@@ -51,6 +55,8 @@ def create_token(username: str, role: str) -> str:
 
 
 def demo_token() -> str:
+    if not is_demo_mode():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demo mode disabled")
     users = _load_users()
     for username, raw in users.items():
         password, role = raw.split("|", 1)

@@ -81,14 +81,16 @@ def main():
             """
         )
 
-        # Org units
+        # Org units (HQ + 50 facilities)
+        base_org = "Diakonissenhaus HQ"
         org_units = [
-            ("Headquarters", None),
-            ("IT", "Headquarters"),
-            ("Finance", "Headquarters"),
-            ("Sales", "Headquarters"),
-            ("Engineering", "Headquarters"),
+            (base_org, None),
+            ("IT", base_org),
+            ("Finance", base_org),
+            ("Sales", base_org),
+            ("Engineering", base_org),
         ]
+        org_units.extend([(f"Einrichtung {i:02d}", base_org) for i in range(1, 51)])
         org_ids = {}
         for name, parent in org_units:
             parent_id = org_ids.get(parent)
@@ -123,11 +125,19 @@ def main():
         # Locations
         locations = [
             ("HQ Office", "Main St 1, 12345 City", "3F", None, None),
-            ("Berlin Office", "Alexanderplatz 5, 10178 Berlin", "5.12", None, None),
-            ("Data Center A", "Industrial Park 12, 98765 Town", "Room DC-A", "Rack 12", "U22"),
-            ("Remote Warehouse", "Logistics Way 7, 54321 City", "Zone B", None, None),
-            ("London Office", "1 Fleet St, London", "2.03", None, None),
         ]
+        locations.extend(
+            [
+                (
+                    f"Einrichtung {i:02d} Standort",
+                    f"Adresse Platz {i}, 100{i:02d} Stadt",
+                    "Hauptstandort",
+                    None,
+                    None,
+                )
+                for i in range(1, 51)
+            ]
+        )
         location_ids = {}
         for name, address, room, rack, rack_unit in locations:
             cur.execute(
